@@ -9,9 +9,8 @@ class Promise {
     try {
       executor(this.resolve, this.reject)
     } catch(e){
-      this.reject(e=>e)
+      this.reject(e)
     }
-   
   }
 
   initValue() {
@@ -46,12 +45,9 @@ class Promise {
   }
 
   then(onFulfilled, onFulreject) {
-    //实现链式调用，且后面改了then的值，必须通过新的实例
-    
+
     if(typeof onFulfilled !== 'function') {
-      onFulfilled = (value)=>{
-        return value
-      }
+      onFulfilled = value => value
     }
 
     if(typeof onFulreject !== 'function') {
@@ -60,13 +56,14 @@ class Promise {
       }
     }
 
+  //实现链式调用, 且改变了后面then的值, 必须通过新的实例
     let promise2 = new Promise((resolve, reject) => {
       if(this.state === Promise.FULFILLED) {
         setTimeout(()=>{
           try {
             const x = onFulfilled(this.value)
             Promise.resolvePromise(promise2, x, resolve, reject)
-          }catch(e){
+          } catch(e) {
             reject(e)
           }
         })
@@ -117,53 +114,52 @@ Promise.PENDING = 'pending'
 Promise.FULFILLED = 'fulfilled'
 Promise.REJECTED = 'rejected'
 Promise.resolvePromise = function(promise2, x, resolve, reject) {
-  if(promise2 === x){
-    reject(new TypeError('chaining cycle detected for promise'))
+  // x 与 promise 相等
+  if (promise2 === x) {
+    reject(new TypeError('Chaining cycle detected for promise'))
   }
 
-  let called = false//采用首次调用忽略其他的
-  const then = x.then
-  if(x instanceof Promise){
-    then.call(
-      x,
-      value =>{
-      if(called) return
-      called = true
-      Promise.resolvePromise(promise2, value, resolve, reject)
-    }, reason => {
-      if(called) return
-      called = true
-      reject(reason)
-    })
-  } else if(x !== null && (typeof x === 'function' || typeof x === 'object')){//对象
-    try{
-      if(typeof then === 'function') {
+  let called = false
+  if (x instanceof Promise) {
+    // 判断 x 为 Promise
+    x.then(
+      value => {
+        Promise.resolvePromise(promise2, value, resolve, reject)
+      },
+      reason => {
+        reject(reason)
+      }
+    )
+  } else if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
+    // x 为对象或函数
+    try {
+      const then = x.then
+      if (typeof then === 'function') {
         then.call(
           x,
-          value=>{
-          if(called) return
-          called = true
-          Promise.resolvePromise(promise2, value, resolve, reject)
-        }, reason=> {
-          if(called) return
-          called = true
-          reject(reason)
-        })
-      } else{
-        if(called) return
+          value => {
+            if (called) return
+            called = true
+            Promise.resolvePromise(promise2, value, resolve, reject)
+          },
+          reason => {
+            if (called) return
+            called = true
+            reject(reason)
+          }
+        )
+      } else {
+        if (called) return
         called = true
-        Promise.resolvePromise(promise2, value, resolve, reject)
+        resolve(x)
       }
-    }catch(e){
-      if(called) return
+    } catch (e) {
+      if (called) return
       called = true
       reject(e)
     }
-    
   } else {
-    // if(called) return
-    // called = true
-    return resolve(x)
+    resolve(x)
   }
 }
 
